@@ -208,8 +208,6 @@ class _CameraPopupState extends State<CameraPopup> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-
-        // Action button
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -231,26 +229,56 @@ class _CameraPopupState extends State<CameraPopup> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
+      setState(() {
+        _isProcessing = true;
+      });
+
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: source);
+
+      // Add timeout and better error handling
+      final XFile? image = await picker
+          .pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      )
+          .timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Camera operation timed out');
+        },
+      );
 
       if (image != null) {
-        setState(() {
-          _isProcessing = true;
-        });
-
         // Save the image
         await _saveImage(image);
 
         // Process the image (simulate processing)
         await _processImage(image.path);
+      } else {
+        // User cancelled
+        setState(() {
+          _isProcessing = false;
+        });
       }
     } catch (e) {
       print('Error picking image: $e');
+      String errorMessage = 'Error accessing camera/gallery. ';
+
+      if (e.toString().contains('permission')) {
+        errorMessage +=
+            'Please check camera and storage permissions in your device settings.';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage += 'Operation timed out. Please try again.';
+      } else {
+        errorMessage += 'Please try again.';
+      }
+
       setState(() {
         _isProcessing = false;
         _processingResult = false;
-        _resultMessage = 'Error picking image. Please try again.';
+        _resultMessage = errorMessage;
       });
     }
   }
