@@ -26,7 +26,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final List<Animation<double>> _bounceAnimations = [];
   final milestones = <double>[0.15, 0.4, 0.65, 0.90, 1.15];
   final milestoneYOffsets = <double>[32.0, 36.0, 26.0, 34.0, 36.0];
-  String _gifAsset = 'assets/rivs/t_0.gif';
+
+  // GIF states for smooth transitions
+  String _currentLoopingGif = 'assets/rivs/t_0.gif';
+  String _transitionGif = '';
+  bool _isTransitioning = false;
 
   @override
   void initState() {
@@ -106,18 +110,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _loadCurrentBatch() {
-    final startIndex = currentBatchIndex * tasksPerBatch;
-    final endIndex = (startIndex + tasksPerBatch).clamp(0, allTasks.length);
-
-    setState(() {
-      currentTasks = allTasks.sublist(startIndex, endIndex);
-      currentTaskIndex = 0;
-      // Reset GIF to initial state for new batch
-      _gifAsset = _getGifAssetForMilestone();
-    });
-  }
-
   void _loadNextBatch() {
     if ((currentBatchIndex + 1) * tasksPerBatch < allTasks.length) {
       setState(() {
@@ -133,18 +125,36 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
-  // Get GIF asset based on current milestone progress
-  String _getGifAssetForMilestone() {
+  Map<String, String> _getGifAssetsForMilestone() {
     if (currentTaskIndex == 0) {
-      return 'assets/rivs/t_0.gif';
+      return {
+        'looping': 'assets/rivs/t_0.gif',
+        'transition': '',
+      };
     } else if (currentTaskIndex == 1) {
-      return 'assets/rivs/t_1.gif';
+      return {
+        'looping': 'assets/rivs/t_1.gif',
+        'transition': 'assets/rivs/t_0-t_1.gif',
+      };
     } else if (currentTaskIndex == 2) {
-      return 'assets/rivs/t_2.gif';
+      // No transition GIF exists for t_1 to t_2, so skip transition
+      return {
+        'looping':
+            'assets/rivs/t_1.gif', // Keep using t_1 since t_2 doesn't exist
+        'transition': '',
+      };
     } else if (currentTaskIndex >= 3) {
-      return 'assets/rivs/t_3.gif';
+      // No transition GIF exists for t_2 to t_3, so skip transition
+      return {
+        'looping':
+            'assets/rivs/t_1.gif', // Keep using t_1 since t_3 doesn't exist
+        'transition': '',
+      };
     } else {
-      return 'assets/rivs/t_0.gif'; // Default fallback
+      return {
+        'looping': 'assets/rivs/t_0.gif',
+        'transition': '',
+      };
     }
   }
 
@@ -189,14 +199,80 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ((allTasks.length / tasksPerBatch).ceil());
       progress = totalProgress.clamp(0.0, 1.0);
 
-      _gifAsset = _getGifAssetForMilestone();
+      // Start transition to new milestone
+      _startTransitionToNewMilestone();
     });
+  }
 
-    if (currentTaskIndex >= currentTasks.length) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _loadNextBatch();
+  // Handle smooth transition between milestones
+  void _startTransitionToNewMilestone() {
+    final gifAssets = _getGifAssetsForMilestone();
+
+    print('🎬 Starting transition: currentTaskIndex = $currentTaskIndex');
+    print(' Transition GIF: ${gifAssets['transition']}');
+    print(' Looping GIF: ${gifAssets['looping']}');
+
+    if (gifAssets['transition']!.isNotEmpty) {
+      print(' Playing transition GIF: ${gifAssets['transition']}');
+      print(' Transition start time: ${DateTime.now()}');
+
+      // Play transition GIF first
+      setState(() {
+        _isTransitioning = true;
+        _transitionGif = gifAssets['transition']!;
+        print(
+            ' Transition state set: _isTransitioning = $_isTransitioning, _transitionGif = $_transitionGif');
+      });
+
+      // Calculate transition duration based on the specific GIF
+      // Different transition GIFs may have different durations
+      int transitionDuration = _getTransitionDuration(gifAssets['transition']!);
+
+      print(' Transition duration: ${transitionDuration}ms');
+
+      // After transition completes, switch to looping GIF
+      Future.delayed(Duration(milliseconds: transitionDuration), () {
+        print('🎬 Transition complete, switching to: ${gifAssets['looping']}');
+        print(' Transition end time: ${DateTime.now()}');
+        setState(() {
+          _isTransitioning = false;
+          _currentLoopingGif = gifAssets['looping']!;
+          print(
+              ' Transition state updated: _isTransitioning = $_isTransitioning, _currentLoopingGif = $_currentLoopingGif');
+        });
+      });
+    } else {
+      print(
+          '🎬 No transition needed, directly updating to: ${gifAssets['looping']}');
+      // No transition needed, directly update looping GIF
+      setState(() {
+        _currentLoopingGif = gifAssets['looping']!;
       });
     }
+  }
+
+  // Get the appropriate transition duration for each GIF
+  int _getTransitionDuration(String transitionGif) {
+    switch (transitionGif) {
+      case 'assets/rivs/t_0-t_1.gif':
+        return 5000; // 5 seconds for the large 13MB transition
+      default:
+        return 3000; // Default 3 seconds for unknown transitions
+    }
+  }
+
+  void _loadCurrentBatch() {
+    final startIndex = currentBatchIndex * tasksPerBatch;
+    final endIndex = (startIndex + tasksPerBatch).clamp(0, allTasks.length);
+
+    setState(() {
+      currentTasks = allTasks.sublist(startIndex, endIndex);
+      currentTaskIndex = 0;
+      // Reset GIF to initial state for new batch
+      _currentLoopingGif = 'assets/rivs/t_0.gif';
+      _isTransitioning = false;
+      _transitionGif = '';
+    });
   }
 
   @override
@@ -263,7 +339,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           borderRadius: BorderRadius.circular(
                               20.0), // Adjust this value for more/less rounded corners
                           child: Image.asset(
-                            _gifAsset,
+                            _isTransitioning
+                                ? _transitionGif
+                                : _currentLoopingGif,
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
