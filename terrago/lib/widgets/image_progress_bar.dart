@@ -5,8 +5,10 @@ class ImageProgressBar extends StatelessWidget {
   final double height;
   final String imagePath;
   final List<double> milestones;
-  final double milestoneYOffset;
+  final List<double>
+      milestoneYOffsets; // Array of Y positions for each milestone
   final VoidCallback? onMilestoneReached;
+  final int activeMilestones; // Number of milestones to make yellow (1-4)
 
   const ImageProgressBar({
     super.key,
@@ -14,8 +16,15 @@ class ImageProgressBar extends StatelessWidget {
     required this.height,
     required this.imagePath,
     this.milestones = const [0.0, 0.25, 0.5, 0.75, 1.0],
-    this.milestoneYOffset = 0.0,
+    this.milestoneYOffsets = const [
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0
+    ], // Default Y positions
     this.onMilestoneReached,
+    this.activeMilestones = 1, // Default: first milestone is yellow
   });
 
   @override
@@ -65,17 +74,24 @@ class ImageProgressBar extends StatelessWidget {
       final milestone = milestones[i];
       final x = milestone * 300; // Use fixed width or pass context
 
+      // Get the Y offset for this specific milestone
+      final yOffset =
+          i < milestoneYOffsets.length ? milestoneYOffsets[i] : 40.0;
+
+      // Milestone is yellow if it's within the activeMilestones count
+      final isActive = i < activeMilestones;
+
       widgets.add(
         Positioned(
           left: x - 12, // Center the milestone
-          top: milestoneYOffset,
+          top: yOffset, // Use individual Y offset for each milestone
           child: Container(
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: progress >= milestone ? Colors.yellow : Colors.grey,
+              color: isActive ? Colors.yellow : Colors.grey,
               shape: BoxShape.circle,
-              boxShadow: progress >= milestone
+              boxShadow: isActive
                   ? [
                       BoxShadow(
                         color: Colors.yellow.withOpacity(0.6),
@@ -85,7 +101,7 @@ class ImageProgressBar extends StatelessWidget {
                     ]
                   : null,
             ),
-            child: progress >= milestone
+            child: isActive
                 ? const Icon(Icons.check, color: Colors.white, size: 16)
                 : null,
           ),

@@ -1,0 +1,9 @@
+{
+  "postcode": "2000",
+  "adults": 2,
+  "cars": 1,
+  "fuel_type": "petrol",
+  "trips_per_week": 7,
+  "diet": "normal",
+  "solar": "no"
+}

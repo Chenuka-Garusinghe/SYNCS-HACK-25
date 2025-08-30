@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import '../utils/carbon_calculator.dart';
 import '../utils/carbon_actions.dart';
+import 'chooseAvatar_screen.dart';
 
 class FormScreen extends StatefulWidget {
   const FormScreen({super.key});
@@ -170,8 +171,25 @@ class _FormScreenState extends State<FormScreen> {
         // Now generate carbon actions using OpenAI API
         try {
           await _generateCarbonActions();
+
+          // Navigate to choose avatar screen after successful completion
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const ChooseAvatarScreen(),
+              ),
+            );
+          }
         } catch (e) {
           print('Error generating carbon actions: $e');
+          // Still navigate even if carbon actions fail
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const ChooseAvatarScreen(),
+              ),
+            );
+          }
         }
 
         // You can now use carbonFootprint and breakdown data as needed
@@ -179,14 +197,6 @@ class _FormScreenState extends State<FormScreen> {
       } catch (e) {
         print('Error calculating carbon footprint: $e');
       }
-
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   const SnackBar(
-      //     content: Text('Form submitted successfully! JSON data generated.'),
-      //     backgroundColor: Colors.green,
-      //     duration: Duration(seconds: 2),
-      //   ),
-      // );
     }
   }
 

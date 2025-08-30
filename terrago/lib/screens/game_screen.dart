@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:terrago/widgets/image_progress_bar.dart';
 import 'package:terrago/widgets/task_item_holder.dart';
+import 'package:terrago/widgets/camera_popup.dart';
+import 'dart:convert';
+import 'dart:io';
 
 class GameScreen extends StatefulWidget {
   // Changed to StatefulWidget
@@ -10,12 +13,122 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   double progress = 0.0;
-  bool isTaskCompleted = false;
+  List<String> allTasks = [];
+  List<String> currentTasks = [];
+  int currentTaskIndex = 0;
+  int currentBatchIndex = 0;
+  int tasksPerBatch = 4;
 
-  // milestones positions
-  final milestones = <double>[0.05, 0.28, 0.52, 0.77, 0.95];
+  final List<AnimationController> _bounceControllers = [];
+  final List<Animation<double>> _bounceAnimations = [];
+  final milestones = <double>[0.15, 0.4, 0.65, 0.90, 1.15];
+  final milestoneYOffsets = <double>[40.0, 44.0, 40.0, 36.0, 46.0];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+    _initializeAnimations();
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _bounceControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _initializeAnimations() {
+    for (int i = 0; i < tasksPerBatch; i++) {
+      final controller = AnimationController(
+        duration: const Duration(milliseconds: 200),
+        vsync: this,
+      );
+      final animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: controller, curve: Curves.elasticOut),
+      );
+
+      _bounceControllers.add(controller);
+      _bounceAnimations.add(animation);
+    }
+  }
+
+  Future<void> _loadTasks() async {
+    try {
+      final Directory documentsDir = Directory.systemTemp;
+      final String actionsJsonPath = '${documentsDir.path}/actions.json';
+
+      final File actionsFile = File(actionsJsonPath);
+      if (await actionsFile.exists()) {
+        final String actionsContent = await actionsFile.readAsString();
+        final Map<String, dynamic> actionsData = jsonDecode(actionsContent);
+
+        setState(() {
+          allTasks = List<String>.from(actionsData['actions'] ?? []);
+          _loadCurrentBatch();
+        });
+      } else {
+        // Fallback tasks if actions.json doesn't exist
+        setState(() {
+          allTasks = [
+            'Replace one short car trip per week with walking or cycling',
+            'Combine errands to reduce the number of car trips',
+            'Practice fuel-efficient driving habits like gentle acceleration',
+            'Have one meat-free meal per week',
+            'Wash clothes in cold water to save energy',
+            'Turn off lights when leaving rooms',
+            'Use reusable shopping bags and water bottles',
+            'Reduce shower time by one minute to save water and energy',
+          ];
+          _loadCurrentBatch();
+        });
+      }
+    } catch (e) {
+      print('Error loading tasks: $e');
+      // Fallback tasks
+      setState(() {
+        allTasks = [
+          'Replace one short car trip per week with walking or cycling',
+          'Combine errands to reduce the number of car trips',
+          'Practice fuel-efficient driving habits like gentle acceleration',
+          'Have one meat-free meal per week',
+          'Wash clothes in cold water to save energy',
+          'Turn off lights when leaving rooms',
+          'Use reusable shopping bags and water bottles',
+          'Reduce shower time by one minute to save water and energy',
+        ];
+        _loadCurrentBatch();
+      });
+    }
+  }
+
+  void _loadCurrentBatch() {
+    final startIndex = currentBatchIndex * tasksPerBatch;
+    final endIndex = (startIndex + tasksPerBatch).clamp(0, allTasks.length);
+
+    setState(() {
+      currentTasks = allTasks.sublist(startIndex, endIndex);
+      currentTaskIndex = 0;
+    });
+  }
+
+  void _loadNextBatch() {
+    if ((currentBatchIndex + 1) * tasksPerBatch < allTasks.length) {
+      setState(() {
+        currentBatchIndex++;
+        _loadCurrentBatch();
+      });
+    } else {
+      // All tasks completed, reset to beginning
+      setState(() {
+        currentBatchIndex = 0;
+        _loadCurrentBatch();
+      });
+    }
+  }
 
   void updateProgress(double newProgress) {
     setState(() {
@@ -23,11 +136,49 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  void _onCameraTap() {
-    // TODO: Implement camera functionality
+  void _onCameraTap(int taskIndex) {
+    if (taskIndex == currentTaskIndex) {
+      // Correct task - show camera popup
+      _showCameraPopup(taskIndex);
+    } else {
+      // Wrong task - bounce animation
+      _bounceControllers[taskIndex].forward().then((_) {
+        _bounceControllers[taskIndex].reverse();
+      });
+    }
+  }
+
+  void _showCameraPopup(int taskIndex) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return CameraPopup(
+          taskText: currentTasks[taskIndex],
+          onSuccess: () => _completeTask(),
+          onCancel: () => Navigator.of(context).pop(),
+        );
+      },
+    );
+  }
+
+  void _completeTask() {
     setState(() {
-      isTaskCompleted = !isTaskCompleted;
+      currentTaskIndex++;
+
+      // Update progress based on completed tasks in current batch
+      final batchProgress = currentTaskIndex / currentTasks.length;
+      final totalProgress = (currentBatchIndex + batchProgress) /
+          ((allTasks.length / tasksPerBatch).ceil());
+      progress = totalProgress.clamp(0.0, 1.0);
     });
+
+    // Check if current batch is complete
+    if (currentTaskIndex >= currentTasks.length) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _loadNextBatch();
+      });
+    }
   }
 
   @override
@@ -55,8 +206,10 @@ class _GameScreenState extends State<GameScreen> {
                   height: 120.0,
                   imagePath: 'assets/ui/image.png',
                   milestones: milestones,
-                  milestoneYOffset:
-                      40.0, // Adjust to position milestones over yellow circles
+                  milestoneYOffsets:
+                      milestoneYOffsets, // Individual Y positions for each milestone
+                  activeMilestones: currentTaskIndex +
+                      1, // 1 for first task, 2 for second, etc.
                 ),
               ],
             ),
@@ -67,22 +220,52 @@ class _GameScreenState extends State<GameScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 16.0),
-                  child: Text(
-                    'Current Task',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Current Tasks (${currentBatchIndex + 1}/${(allTasks.length / tasksPerBatch).ceil()})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        '${currentTaskIndex}/${currentTasks.length} completed',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                TaskItemHolder(
-                  taskText: "Capture evidence of your work",
-                  isCompleted: isTaskCompleted,
-                  onCameraTap: _onCameraTap,
-                ),
+                ...currentTasks.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final task = entry.value;
+                  final isCompleted = index < currentTaskIndex;
+                  final isCurrentTask = index == currentTaskIndex;
+
+                  return AnimatedBuilder(
+                    animation: _bounceAnimations[index],
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, _bounceAnimations[index].value * 10),
+                        child: TaskItemHolder(
+                          taskText: task,
+                          isCompleted: isCompleted,
+                          onCameraTap: () => _onCameraTap(index),
+                          dotColor: isCurrentTask ? Colors.green : null,
+                          textColor: isCurrentTask ? Colors.green[700] : null,
+                          // Don't change icon color - keep default camera button styling
+                        ),
+                      );
+                    },
+                  );
+                }).toList(),
               ],
             ),
           ),
