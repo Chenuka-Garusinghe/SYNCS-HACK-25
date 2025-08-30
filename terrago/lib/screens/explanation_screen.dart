@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrago/screens/form.dart';
 import 'animation_screen.dart';
 import '../widgets/feature_item.dart';
 
@@ -94,7 +95,7 @@ class ExplanationScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (context) => const AnimationScreen()),
+                        builder: (context) => const FormScreen()),
                   );
                 },
                 style: ElevatedButton.styleFrom(

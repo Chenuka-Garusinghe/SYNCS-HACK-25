@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'explanation_screen.dart';
+import 'package:terrago/screens/explanation_screen.dart';
+import 'form.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,7 +13,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Auto-navigate to explanation screen after 3 seconds
+    // Auto-navigate to form screen after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
