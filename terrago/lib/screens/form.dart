@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
 import '../utils/carbon_calculator.dart';
+import '../utils/carbon_actions.dart';
 
 class FormScreen extends StatefulWidget {
   const FormScreen({super.key});
@@ -88,6 +89,44 @@ class _FormScreenState extends State<FormScreen> {
     };
   }
 
+  Map<String, dynamic> _generateCarbonActionsData() {
+    // Convert dietary type to the format expected by carbon actions
+    String dietType = 'normal';
+    switch (_dietaryType) {
+      case 'Meat Heavy':
+        dietType = 'meat_heavy';
+        break;
+      case 'Normal Omnivorous':
+        dietType = 'normal';
+        break;
+      case 'Vegetarian':
+        dietType = 'vegetarian';
+        break;
+      case 'Vegan':
+        dietType = 'vegan';
+        break;
+    }
+
+    // For carbon actions, we need to determine the primary fuel type
+    // If there are multiple vehicles, use the most common type
+    String primaryFuelType = 'petrol'; // default
+    if (_numberOfVehicles > 0) {
+      int petrolCount = _vehicleTypes.where((type) => type == 'Gas').length;
+      int evCount = _vehicleTypes.where((type) => type == 'EV').length;
+      primaryFuelType = petrolCount >= evCount ? 'petrol' : 'ev';
+    }
+
+    return {
+      "postcode": _postCodeController.text,
+      "adults": int.tryParse(_peopleController.text) ?? 0,
+      "cars": _numberOfVehicles,
+      "fuel_type": primaryFuelType,
+      "trips_per_week": int.tryParse(_tripsController.text) ?? 0,
+      "diet": dietType,
+      "solar": _hasSolarPanels ? "yes" : "no",
+    };
+  }
+
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       Map<String, dynamic> jsonData = _generateJsonData();
@@ -127,6 +166,13 @@ class _FormScreenState extends State<FormScreen> {
 
         // Save to output.json file
         await _saveOutputToFile(outputData);
+
+        // Now generate carbon actions using OpenAI API
+        try {
+          await _generateCarbonActions();
+        } catch (e) {
+          print('Error generating carbon actions: $e');
+        }
 
         // You can now use carbonFootprint and breakdown data as needed
         // For example, store them in variables, send to API, or display in UI
@@ -175,6 +221,76 @@ class _FormScreenState extends State<FormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving output file: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _generateCarbonActions() async {
+    try {
+      final Directory documentsDir = Directory.systemTemp;
+      final String outputJsonPath = '${documentsDir.path}/output.json';
+      final String actionsJsonPath = '${documentsDir.path}/actions.json';
+
+      print('\n🔄 Generating carbon actions using OpenAI API...');
+
+      // First, create the output.json file in the format expected by carbon actions
+      final Map<String, dynamic> carbonActionsData =
+          _generateCarbonActionsData();
+      final String carbonActionsJsonString =
+          const JsonEncoder.withIndent('  ').convert(carbonActionsData);
+
+      final File outputFile = File(outputJsonPath);
+      await outputFile.writeAsString(carbonActionsJsonString);
+
+      print('📄 Created output.json for carbon actions:');
+      print(carbonActionsJsonString);
+
+      // Process the output.json and generate actions using OpenAI API
+      await CarbonActionsGenerator.processOutputAndGenerateActions(
+        outputJsonPath: outputJsonPath,
+        actionsJsonPath: actionsJsonPath,
+        useOpenAI: true,
+      );
+
+      // Read and display the generated actions
+      final File actionsFile = File(actionsJsonPath);
+      if (await actionsFile.exists()) {
+        final String actionsContent = await actionsFile.readAsString();
+        final Map<String, dynamic> actionsData = jsonDecode(actionsContent);
+
+        print('\n🎯 GENERATED CARBON ACTIONS:');
+        print('=' * 50);
+
+        final List<dynamic> actions = actionsData['actions'];
+        for (int i = 0; i < actions.length; i++) {
+          print('${i + 1}. ${actions[i]}');
+        }
+
+        print('=' * 50);
+        print('✅ Actions saved to: $actionsJsonPath');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Carbon actions generated successfully!'),
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        print('❌ Actions file not found at: $actionsJsonPath');
+      }
+    } catch (e) {
+      print('❌ Error generating carbon actions: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating carbon actions: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
