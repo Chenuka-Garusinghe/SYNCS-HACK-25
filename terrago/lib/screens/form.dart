@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:terrago/screens/chooseAvatar_screen.dart';
-import 'package:terrago/screens/game_screen.dart';
+import 'dart:convert';
+import 'dart:io';
+import '../utils/carbon_calculator.dart';
 
 class FormScreen extends StatefulWidget {
   const FormScreen({super.key});
@@ -52,26 +53,133 @@ class _FormScreenState extends State<FormScreen> {
     });
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      print('Post Code: ${_postCodeController.text}');
-      print('Number of People: ${_peopleController.text}');
-      print('Number of Vehicles: $_numberOfVehicles');
-      print('Vehicle Types: $_vehicleTypes');
-      print('Trips per Week: ${_tripsController.text}');
-      print('Dietary Type: $_dietaryType');
-      print('Has Solar Panels: $_hasSolarPanels');
+  Map<String, dynamic> _generateJsonData() {
+    // Convert dietary type to the format specified in the JSON
+    String dietType = 'normal';
+    switch (_dietaryType) {
+      case 'Meat Heavy':
+        dietType = 'meat_heavy';
+        break;
+      case 'Normal Omnivorous':
+        dietType = 'normal';
+        break;
+      case 'Vegetarian':
+        dietType = 'vegetarian';
+        break;
+      case 'Vegan':
+        dietType = 'vegan';
+        break;
+    }
 
-      // Navigate to next screen or show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Form submitted successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const ChooseAvatarScreen()),
-      );
+    // Convert fuel types to a list based on each vehicle's type
+    List<String> fuelTypes = [];
+    for (String vehicleType in _vehicleTypes) {
+      fuelTypes.add(vehicleType == 'Gas' ? 'petrol' : 'ev');
+    }
+
+    return {
+      "postcode": _postCodeController.text,
+      "adults": int.tryParse(_peopleController.text) ?? 0,
+      "cars": _numberOfVehicles,
+      "fuel_type": fuelTypes,
+      "trips_per_week": int.tryParse(_tripsController.text) ?? 0,
+      "diet": dietType,
+      "solar": _hasSolarPanels ? "yes" : "no",
+    };
+  }
+
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      Map<String, dynamic> jsonData = _generateJsonData();
+      String jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
+
+      // Store the JSON data in variables for further use
+      // You can access:
+      // - jsonData: Map<String, dynamic> containing the structured data
+      // - jsonString: String containing the formatted JSON
+
+      print('Generated JSON ------>');
+      print(jsonString);
+
+      // Calculate carbon footprint using the carbon calculator
+      try {
+        final double carbonFootprint =
+            CarbonCalculator.calculateAnnualCo2e(jsonData);
+        final Map<String, dynamic> breakdown =
+            CarbonCalculator.getCalculationBreakdown(jsonData);
+
+        print('\n=== CARBON FOOTPRINT CALCULATION ===');
+        print('Annual CO2e: ${carbonFootprint} kg');
+        print(
+            'Transport: ${breakdown['breakdown']['transport']['annual_total_kgco2e']} kg CO2e (${breakdown['breakdown']['transport']['percentage']}%)');
+        print(
+            'Diet: ${breakdown['breakdown']['diet']['annual_total_kgco2e']} kg CO2e (${breakdown['breakdown']['diet']['percentage']}%)');
+        print(
+            'Electricity: ${breakdown['breakdown']['electricity']['annual_total_kgco2e']} kg CO2e (${breakdown['breakdown']['electricity']['percentage']}%)');
+
+        // Create output data for the JSON file
+        final Map<String, dynamic> outputData = {
+          'annual_total_kgco2e': carbonFootprint,
+          'breakdown': breakdown['breakdown'],
+          'input_data': jsonData,
+          'calculation_timestamp': DateTime.now().toIso8601String(),
+        };
+
+        // Save to output.json file
+        await _saveOutputToFile(outputData);
+
+        // You can now use carbonFootprint and breakdown data as needed
+        // For example, store them in variables, send to API, or display in UI
+      } catch (e) {
+        print('Error calculating carbon footprint: $e');
+      }
+
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(
+      //     content: Text('Form submitted successfully! JSON data generated.'),
+      //     backgroundColor: Colors.green,
+      //     duration: Duration(seconds: 2),
+      //   ),
+      // );
+    }
+  }
+
+  Future<void> _saveOutputToFile(Map<String, dynamic> outputData) async {
+    try {
+      final Directory documentsDir = Directory.systemTemp;
+      final String filePath = '${documentsDir.path}/output.json';
+
+      final String jsonString =
+          const JsonEncoder.withIndent('  ').convert(outputData);
+
+      final File file = File(filePath);
+      await file.writeAsString(jsonString);
+
+      print('✅ Output saved to: $filePath');
+      print('📄 File contents:');
+      print(jsonString);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Carbon footprint calculated and saved to output.json'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error saving output file to hidden temp foler$e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving output file: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -115,7 +223,7 @@ class _FormScreenState extends State<FormScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Let\'s assess your environmental impact',
+                      'Let\'s  now assess your environmental impact',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
