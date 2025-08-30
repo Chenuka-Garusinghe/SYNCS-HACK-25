@@ -28,6 +28,8 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  rive: ^0.13.20
+
   flutter:
     sdk: flutter
 
@@ -66,6 +68,9 @@ flutter:
   assets:
     - ./assets/ui/image.png
     - ./assets/ui/building.png
+    - ./assets/floating-2.riv
+    - ./assets/floating-3.riv
+    - ./assets/floating-4.riv
     - .env
 
 

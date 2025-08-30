@@ -21,24 +21,30 @@ class TaskItemHolder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            spreadRadius: 2,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            spreadRadius: 0,
             offset: const Offset(0, 2),
           ),
         ],
         border: Border.all(
           color: isCompleted
-              ? Colors.green.withOpacity(0.3)
-              : Colors.grey.withOpacity(0.2),
-          width: 1,
+              ? Colors.green.withOpacity(0.2)
+              : Colors.grey.withOpacity(0.1),
+          width: 0.5,
         ),
       ),
       child: Row(
@@ -61,7 +67,6 @@ class TaskItemHolder extends StatelessWidget {
               }),
             ),
           ),
-
           Expanded(
             child: Text(
               taskText,
@@ -76,7 +81,6 @@ class TaskItemHolder extends StatelessWidget {
               ),
             ),
           ),
-
           GestureDetector(
             onTap: onCameraTap,
             child: Container(

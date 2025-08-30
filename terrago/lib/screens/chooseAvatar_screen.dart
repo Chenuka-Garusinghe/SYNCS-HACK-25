@@ -1,6 +1,7 @@
 // ignore: file_names
 import 'package:flutter/material.dart';
 import 'package:terrago/screens/game_screen.dart';
+import 'package:rive/rive.dart' as rive;
 
 class ChooseAvatarScreen extends StatefulWidget {
   const ChooseAvatarScreen({super.key});
@@ -34,11 +35,11 @@ class _ChooseAvatarScreenState extends State<ChooseAvatarScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 40),
-            SizedBox(
-              width: 300,
-              height:300,
-              child: Image.asset(
-                'assets/ui/building.png',
+            const SizedBox(
+              width: 380,
+              height: 380,
+              child: rive.RiveAnimation.asset(
+                'assets/floating-4.riv',
                 fit: BoxFit.contain,
               ),
             ),
@@ -72,35 +73,38 @@ class _ChooseAvatarScreenState extends State<ChooseAvatarScreen> {
 
             const SizedBox(height: 40),
 
-            // Confirm button
-            if (selectedAvatarIndex != null)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const GameScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+            // Confirm button - always show but enable only when avatar is selected
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: selectedAvatarIndex != null
+                    ? () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const GameScreen(),
+                          ),
+                        );
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedAvatarIndex != null
+                      ? Colors.green[700]
+                      : Colors.grey[400],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    'Confirm Selection',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                ),
+                child: const Text(
+                  'Confirm Selection',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
+            ),
             const SizedBox(height: 40),
           ],
         ),
@@ -141,12 +145,14 @@ class _ChooseAvatarScreenState extends State<ChooseAvatarScreen> {
             // Avatar content
             Center(
               child: index == 0
-                  ? ClipOval(
-                      child: Image.asset(
-                        'assets/ui/building.png',
+                  ? const ClipOval(
+                      child: SizedBox(
                         width: 80,
                         height: 80,
-                        fit: BoxFit.cover,
+                        child: rive.RiveAnimation.asset(
+                          'assets/floating-4.riv',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     )
                   : const Icon(
@@ -156,7 +162,6 @@ class _ChooseAvatarScreenState extends State<ChooseAvatarScreen> {
                     ),
             ),
 
-            // Lock overlay for disabled option
             if (isLocked)
               Positioned(
                 top: 8,

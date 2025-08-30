@@ -187,89 +187,128 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       appBar: AppBar(
         title: const Text('Game'),
       ),
-      body: Column(
-        children: [
-          // child 1: avatar
-          const Column(
-            children: [
-              Text('Avatar'),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.grey[50]!,
+              Colors.white,
             ],
           ),
-          // child 2: Progress bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+        ),
+        child: Column(
+          children: [
+            // child 1: avatar
+            const Column(
               children: [
-                // Progress bar with PNG overlay
-                ImageProgressBar(
-                  progress: progress,
-                  height: 120.0,
-                  imagePath: 'assets/ui/image.png',
-                  milestones: milestones,
-                  milestoneYOffsets:
-                      milestoneYOffsets, // Individual Y positions for each milestone
-                  activeMilestones: currentTaskIndex +
-                      1, // 1 for first task, 2 for second, etc.
-                ),
+                Text('Avatar'),
               ],
             ),
-          ),
-          // child 3: Task List
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Current Tasks (${currentBatchIndex + 1}/${(allTasks.length / tasksPerBatch).ceil()})',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        '${currentTaskIndex}/${currentTasks.length} completed',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+            // child 2: Progress bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // Progress bar with PNG overlay
+                  ImageProgressBar(
+                    progress: progress,
+                    height: 120.0,
+                    imagePath: 'assets/ui/image.png',
+                    milestones: milestones,
+                    milestoneYOffsets:
+                        milestoneYOffsets, // Individual Y positions for each milestone
+                    activeMilestones: currentTaskIndex +
+                        1, // 1 for first task, 2 for second, etc.
                   ),
-                ),
-                ...currentTasks.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final task = entry.value;
-                  final isCompleted = index < currentTaskIndex;
-                  final isCurrentTask = index == currentTaskIndex;
-
-                  return AnimatedBuilder(
-                    animation: _bounceAnimations[index],
-                    builder: (context, child) {
-                      return Transform.translate(
-                        offset: Offset(0, _bounceAnimations[index].value * 10),
-                        child: TaskItemHolder(
-                          taskText: task,
-                          isCompleted: isCompleted,
-                          onCameraTap: () => _onCameraTap(index),
-                          dotColor: isCurrentTask ? Colors.green : null,
-                          textColor: isCurrentTask ? Colors.green[700] : null,
-                          // Don't change icon color - keep default camera button styling
-                        ),
-                      );
-                    },
-                  );
-                }).toList(),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            // child 3: Task List
+            Expanded(
+              child: CustomScrollView(
+                // iOS 18 notification center style physics
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  // Header section
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Current Tasks (${currentBatchIndex + 1}/${(allTasks.length / tasksPerBatch).ceil()})',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              '${currentTaskIndex}/${currentTasks.length} completed',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Task items with iOS-style stacking
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final task = currentTasks[index];
+                        final isCompleted = index < currentTaskIndex;
+                        final isCurrentTask = index == currentTaskIndex;
+
+                        return AnimatedBuilder(
+                          animation: _bounceAnimations[index],
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(
+                                  0, _bounceAnimations[index].value * 10),
+                              child: Container(
+                                margin: EdgeInsets.only(
+                                  left: 16.0,
+                                  right: 16.0,
+                                  bottom: index == currentTasks.length - 1
+                                      ? 16.0
+                                      : 8.0,
+                                ),
+                                child: TaskItemHolder(
+                                  taskText: task,
+                                  isCompleted: isCompleted,
+                                  onCameraTap: () => _onCameraTap(index),
+                                  dotColor: isCurrentTask ? Colors.green : null,
+                                  textColor:
+                                      isCurrentTask ? Colors.green[700] : null,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      childCount: currentTasks.length,
+                    ),
+                  ),
+                  // Bottom padding for better scroll experience
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 20),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
