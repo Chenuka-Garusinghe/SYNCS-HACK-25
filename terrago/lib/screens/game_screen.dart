@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:terrago/widgets/image_progress_bar.dart';
 import 'package:terrago/widgets/task_item_holder.dart';
 import 'package:terrago/widgets/camera_popup.dart';
+import 'package:terrago/screens/explore_page.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -187,6 +188,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Game'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.explore),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const ExplorePage(),
+              ),
+            );
+          },
+        ),
       ),
       body: Container(
         decoration: BoxDecoration(
