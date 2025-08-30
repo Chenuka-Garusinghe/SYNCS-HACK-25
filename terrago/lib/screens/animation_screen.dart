@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'chooseAvatar_screen.dart';
 
 class AnimationScreen extends StatefulWidget {
   const AnimationScreen({super.key});
@@ -123,11 +122,6 @@ class _AnimationScreenState extends State<AnimationScreen>
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ChooseAvatarScreen(),
-                      ),
-                    );
                     if (_animationController.isAnimating) {
                       _animationController.stop();
                     } else {
@@ -138,7 +132,9 @@ class _AnimationScreenState extends State<AnimationScreen>
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text("Continue"),
+                  child: Text(
+                    _animationController.isAnimating ? 'Pause' : 'Play',
+                  ),
                 ),
                 ElevatedButton(
                   onPressed: () {
