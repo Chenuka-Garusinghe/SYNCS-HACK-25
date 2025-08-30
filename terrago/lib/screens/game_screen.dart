@@ -3,9 +3,9 @@ import 'package:terrago/widgets/image_progress_bar.dart';
 import 'package:terrago/widgets/task_item_holder.dart';
 import 'package:terrago/widgets/camera_popup.dart';
 import 'package:terrago/screens/explore_page.dart';
-import 'package:rive/rive.dart' as rive;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 class GameScreen extends StatefulWidget {
   // Changed to StatefulWidget
@@ -27,6 +27,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final List<Animation<double>> _bounceAnimations = [];
   final milestones = <double>[0.15, 0.4, 0.65, 0.90, 1.15];
   final milestoneYOffsets = <double>[32.0, 36.0, 26.0, 34.0, 36.0];
+
+  // GIF asset path
+  final String _gifAsset = 'assets/rivs/t_1.gif';
 
   @override
   void initState() {
@@ -183,21 +186,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
-  // Get Rive asset based on current milestone progress
-  String _getRiveAssetForMilestone() {
-    if (currentTaskIndex == 0) {
-      return 'assets/rivs/t_0.riv';
-    } else if (currentTaskIndex == 1) {
-      return 'assets/rivs/t_1.riv';
-    } else if (currentTaskIndex == 2) {
-      return 'assets/rivs/t_2.riv';
-    } else if (currentTaskIndex >= 3) {
-      return 'assets/rivs/t_3.riv';
-    } else {
-      return 'assets/rivs/t_0.riv'; // Default fallback
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -234,24 +222,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           child: Column(
             children: [
               // child 1: avatar
-              const Column(
-                children: [
-                  Text('Avatar'),
-                ],
-              ),
-              // Large Rive animation
+              // Large GIF Player
               Container(
                 width: double.infinity,
                 height: 600.0,
-                color: Colors.transparent, // Remove dark background
-                child: Center(
-                  // Center the animation
+                color: Colors.transparent,
+                child: Transform.translate(
+                  offset: const Offset(-2, 0), // Move 100px to the left
                   child: SizedBox(
-                    width: 700.0, // Make it wider and shift left
+                    width: 1000.0,
                     height: 600.0,
-                    child: rive.RiveAnimation.asset(
-                      _getRiveAssetForMilestone(),
+                    child: Image.asset(
+                      _gifAsset,
                       fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
                     ),
                   ),
                 ),
