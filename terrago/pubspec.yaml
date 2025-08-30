@@ -68,11 +68,15 @@ flutter:
   assets:
     - ./assets/ui/branch.png
     - ./assets/ui/building.png
+    - ./assets/ui/wallpaper.png
     - ./assets/floating-2.riv
     - ./assets/floating-3.riv
     - ./assets/floating-4.riv
     - ./assets/rivs/
+    - ./assets/rivs/t_0.gif
     - ./assets/rivs/t_1.gif
+    - ./assets/rivs/t_2.gif
+    - ./assets/rivs/t_3.gif
     - ./assets/community/
     - .env
 
