@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'dart:convert';
+// import 'dart:convert';
+import '../utils/image_validator.dart';
 
 class CameraPopup extends StatefulWidget {
   final String taskText;
@@ -109,7 +110,6 @@ class _CameraPopupState extends State<CameraPopup> {
         ),
         const SizedBox(height: 24),
 
-        // Camera and gallery buttons
         Row(
           children: [
             Expanded(
@@ -152,17 +152,71 @@ class _CameraPopupState extends State<CameraPopup> {
   Widget _buildProcessingWidget() {
     return Column(
       children: [
-        const CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.8, end: 1.2),
+          duration: const Duration(seconds: 2),
+          builder: (context, value, child) {
+            return Transform.scale(
+              scale: value,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.blue[100],
+                  border: Border.all(
+                    color: Colors.blue[300]!
+                        .withOpacity(0.8 + (value - 0.8) * 0.5),
+                    width: 2,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Center(
+                        child: Transform.translate(
+                          offset: const Offset(0, -1),
+                          child: const Text(
+                            '🧠', // Brain emoji
+                            style: TextStyle(fontSize: 50),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 16),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Thinking',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const _AnimatedDots(),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Subtitle
         Text(
-          'Processing your image...',
+          'Analyzing your image...',
           style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+            fontSize: 14,
+            color: Colors.grey[600],
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -251,11 +305,8 @@ class _CameraPopupState extends State<CameraPopup> {
       );
 
       if (image != null) {
-        // Save the image
+        // Save and process the image
         await _saveImage(image);
-
-        // Process the image (simulate processing)
-        await _processImage(image.path);
       } else {
         // User cancelled
         setState(() {
@@ -285,15 +336,15 @@ class _CameraPopupState extends State<CameraPopup> {
 
   Future<void> _saveImage(XFile image) async {
     try {
-      final Directory documentsDir = Directory.systemTemp;
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = 'task_photo_$timestamp.jpg';
-      final String filePath = '${documentsDir.path}/$fileName';
+      final Directory tempDir = await getTemporaryDirectory();
+      final String fileName =
+          'image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String filePath = '${tempDir.path}/$fileName';
 
-      // Copy the image to our temp directory
-      await File(image.path).copy(filePath);
+      final File imageFile = File(image.path);
+      await imageFile.copy(filePath);
 
-      print('✅ Photo saved to: $filePath');
+      _processImage(filePath);
     } catch (e) {
       print('❌ Error saving image: $e');
     }
@@ -301,18 +352,23 @@ class _CameraPopupState extends State<CameraPopup> {
 
   Future<void> _processImage(String imagePath) async {
     try {
-      // Simulate processing time
-      await Future.delayed(const Duration(seconds: 2));
+      final ImageValidationResult result = await ImageValidator.validateImage(
+        imagePath: imagePath,
+        taskObjective: widget.taskText,
+      );
 
-      // Check the processing result from our hidden file
-      final bool passesProcessing = await _checkProcessingResult();
+      await ImageValidator.saveValidationResult(
+        imagePath: imagePath,
+        taskObjective: widget.taskText,
+        result: result,
+      );
 
       setState(() {
         _isProcessing = false;
-        _processingResult = passesProcessing;
-        _resultMessage = passesProcessing
-            ? 'Your task has been completed successfully!'
-            : 'The image doesn\'t meet the task requirements. Please try again.';
+        _processingResult = result.isValid;
+        _resultMessage = result.isValid
+            ? 'Great! Your task has been completed successfully!'
+            : result.reason;
       });
     } catch (e) {
       print('❌ Error processing image: $e');
@@ -324,56 +380,7 @@ class _CameraPopupState extends State<CameraPopup> {
     }
   }
 
-  Future<bool> _checkProcessingResult() async {
-    try {
-      final Directory documentsDir = Directory.systemTemp;
-      final String filePath = '${documentsDir.path}/processing_results.json';
-
-      final File file = File(filePath);
-
-      // Create the file if it doesn't exist with default settings
-      if (!await file.exists()) {
-        await _createDefaultProcessingFile(filePath);
-      }
-
-      // Read the processing rules
-      final String contents = await file.readAsString();
-      final Map<String, dynamic> data = jsonDecode(contents);
-
-      // For now, return the default pass value (true)
-      return data['default_pass'] ?? true;
-    } catch (e) {
-      print('❌ Error checking processing result: $e');
-      // Default to true if there's an error
-      return true;
-    }
-  }
-
-  Future<void> _createDefaultProcessingFile(String filePath) async {
-    try {
-      final Map<String, dynamic> defaultData = {
-        'default_pass': true,
-        'created_at': DateTime.now().toIso8601String(),
-        'note':
-            'This file controls image processing results. Set default_pass to false to make images fail validation.',
-        'rules': {
-          'enable_ai_processing': false,
-          'require_specific_objects': false,
-          'minimum_quality_score': 0.0,
-        }
-      };
-
-      final File file = File(filePath);
-      await file.writeAsString(jsonEncode(defaultData));
-
-      print('✅ Created processing results file: $filePath');
-    } catch (e) {
-      print('❌ Error creating processing file: $e');
-    }
-  }
-
   void _handleSuccess() {
-    // Close the popup with a small delay and call success callback
     Future.delayed(const Duration(milliseconds: 500), () {
       Navigator.of(context).pop();
       widget.onSuccess();
@@ -381,10 +388,70 @@ class _CameraPopupState extends State<CameraPopup> {
   }
 
   void _handleRetry() {
-    // Reset the state to allow another attempt
     setState(() {
       _processingResult = null;
       _resultMessage = '';
     });
+  }
+}
+
+class _AnimatedDots extends StatefulWidget {
+  const _AnimatedDots();
+
+  @override
+  State<_AnimatedDots> createState() => _AnimatedDotsState();
+}
+
+class _AnimatedDotsState extends State<_AnimatedDots>
+    with TickerProviderStateMixin {
+  late AnimationController _controller;
+  int _dotCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+
+    _controller.addListener(() {
+      final progress = _controller.value;
+      if (progress < 0.33) {
+        if (_dotCount != 1) {
+          setState(() => _dotCount = 1);
+        }
+      } else if (progress < 0.66) {
+        if (_dotCount != 2) {
+          setState(() => _dotCount = 2);
+        }
+      } else {
+        if (_dotCount != 3) {
+          setState(() => _dotCount = 3);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: Text(
+        '.' * _dotCount,
+        key: ValueKey(_dotCount),
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: Colors.blue[600],
+        ),
+      ),
+    );
   }
 }
