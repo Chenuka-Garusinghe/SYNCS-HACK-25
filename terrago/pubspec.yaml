@@ -71,6 +71,7 @@ flutter:
     - ./assets/floating-2.riv
     - ./assets/floating-3.riv
     - ./assets/floating-4.riv
+    - ./assets/rivs/
     - ./assets/community/
     - .env
 

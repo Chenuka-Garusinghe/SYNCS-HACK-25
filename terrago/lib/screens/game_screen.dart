@@ -3,6 +3,7 @@ import 'package:terrago/widgets/image_progress_bar.dart';
 import 'package:terrago/widgets/task_item_holder.dart';
 import 'package:terrago/widgets/camera_popup.dart';
 import 'package:terrago/screens/explore_page.dart';
+import 'package:rive/rive.dart' as rive;
 import 'dart:convert';
 import 'dart:io';
 
@@ -25,8 +26,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final List<AnimationController> _bounceControllers = [];
   final List<Animation<double>> _bounceAnimations = [];
   final milestones = <double>[0.15, 0.4, 0.65, 0.90, 1.15];
-  // final milestoneYOffsets = <double>[40.0, 44.0, 40.0, 36.0, 46.0];
-  final milestoneYOffsets = <double>[60.0, 64.0, 60.0, 56.0, 66.0];
+  final milestoneYOffsets = <double>[32.0, 36.0, 26.0, 34.0, 36.0];
 
   @override
   void initState() {
@@ -183,6 +183,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
+  // Get Rive asset based on current milestone progress
+  String _getRiveAssetForMilestone() {
+    if (currentTaskIndex == 0) {
+      return 'assets/rivs/t_0.riv';
+    } else if (currentTaskIndex == 1) {
+      return 'assets/rivs/t_1.riv';
+    } else if (currentTaskIndex == 2) {
+      return 'assets/rivs/t_2.riv';
+    } else if (currentTaskIndex >= 3) {
+      return 'assets/rivs/t_3.riv';
+    } else {
+      return 'assets/rivs/t_0.riv'; // Default fallback
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -212,116 +227,138 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
-        child: Column(
-          children: [
-            // child 1: avatar
-            const Column(
-              children: [
-                Text('Avatar'),
-              ],
-            ),
-            // child 2: Progress bar
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          child: Column(
+            children: [
+              // child 1: avatar
+              const Column(
                 children: [
-                  // Progress bar with PNG overlay
-                  ImageProgressBar(
-                    progress: progress,
-                    height: 220.0,
-                    imagePath: 'assets/ui/branch.png',
-                    milestones: milestones,
-                    milestoneYOffsets:
-                        milestoneYOffsets, // Individual Y positions for each milestone
-                    activeMilestones: currentTaskIndex +
-                        1, // 1 for first task, 2 for second, etc.
-                  ),
+                  Text('Avatar'),
                 ],
               ),
-            ),
-            // child 3: Task List
-            Expanded(
-              child: CustomScrollView(
-                // iOS 18 notification center style physics
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
+              // Large Rive animation
+              Container(
+                width: double.infinity,
+                height: 600.0,
+                color: Colors.transparent, // Remove dark background
+                child: Center(
+                  // Center the animation
+                  child: SizedBox(
+                    width: 700.0, // Make it wider and shift left
+                    height: 600.0,
+                    child: rive.RiveAnimation.asset(
+                      _getRiveAssetForMilestone(),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
-                slivers: [
-                  // Header section
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Current Tasks (${currentBatchIndex + 1}/${(allTasks.length / tasksPerBatch).ceil()})',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+              ),
+              // child 2: Progress bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    16.0, 8.0, 16.0, 8.0), // Reduced vertical padding
+                child: Column(
+                  children: [
+                    // Progress bar with PNG overlay
+                    ImageProgressBar(
+                      progress: progress,
+                      height: 150.0,
+                      imagePath: 'assets/ui/branch.png',
+                      milestones: milestones,
+                      milestoneYOffsets:
+                          milestoneYOffsets, // Individual Y positions for each milestone
+                      activeMilestones: currentTaskIndex +
+                          1, // 1 for first task, 2 for second, etc.
+                    ),
+                  ],
+                ),
+              ),
+              // child 3: Task List
+              Transform.translate(
+                offset: const Offset(
+                    0, -16.0), // Pull task list closer to milestone bar
+                child: Container(
+                  child: Column(
+                    children: [
+                      // Header section
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                              bottom: 8.0), // Reduced bottom padding
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Current Tasks (${currentBatchIndex + 1}/${(allTasks.length / tasksPerBatch).ceil()})',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
                               ),
-                            ),
-                            Text(
-                              '${currentTaskIndex}/${currentTasks.length} completed',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
+                              Text(
+                                '${currentTaskIndex}/${currentTasks.length} completed',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  // Task items with iOS-style stacking
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final task = currentTasks[index];
-                        final isCompleted = index < currentTaskIndex;
-                        final isCurrentTask = index == currentTaskIndex;
+                      // Task items with iOS-style stacking
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: currentTasks.length,
+                        itemBuilder: (context, index) {
+                          final task = currentTasks[index];
+                          final isCompleted = index < currentTaskIndex;
+                          final isCurrentTask = index == currentTaskIndex;
 
-                        return AnimatedBuilder(
-                          animation: _bounceAnimations[index],
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: Offset(
-                                  0, _bounceAnimations[index].value * 10),
-                              child: Container(
-                                margin: EdgeInsets.only(
-                                  left: 16.0,
-                                  right: 16.0,
-                                  bottom: index == currentTasks.length - 1
-                                      ? 16.0
-                                      : 8.0,
+                          return AnimatedBuilder(
+                            animation: _bounceAnimations[index],
+                            builder: (context, child) {
+                              return Transform.translate(
+                                offset: Offset(
+                                    0, _bounceAnimations[index].value * 10),
+                                child: Container(
+                                  margin: EdgeInsets.only(
+                                    left: 16.0,
+                                    right: 16.0,
+                                    bottom: index == currentTasks.length - 1
+                                        ? 16.0
+                                        : 8.0,
+                                  ),
+                                  child: TaskItemHolder(
+                                    taskText: task,
+                                    isCompleted: isCompleted,
+                                    onCameraTap: () => _onCameraTap(index),
+                                    dotColor:
+                                        isCurrentTask ? Colors.green : null,
+                                    textColor: isCurrentTask
+                                        ? Colors.green[700]
+                                        : null,
+                                  ),
                                 ),
-                                child: TaskItemHolder(
-                                  taskText: task,
-                                  isCompleted: isCompleted,
-                                  onCameraTap: () => _onCameraTap(index),
-                                  dotColor: isCurrentTask ? Colors.green : null,
-                                  textColor:
-                                      isCurrentTask ? Colors.green[700] : null,
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      childCount: currentTasks.length,
-                    ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      // Bottom padding for better scroll experience
+                      const SizedBox(height: 20),
+                    ],
                   ),
-                  // Bottom padding for better scroll experience
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 20),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
