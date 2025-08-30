@@ -31,12 +31,12 @@ class ImageProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Base progress bar
+        // Base progress bar (transparent to reduce white box)
         Container(
           height: height,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: const Color(0xFFE6E6E6),
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(12.0),
           ),
           child: FractionallySizedBox(

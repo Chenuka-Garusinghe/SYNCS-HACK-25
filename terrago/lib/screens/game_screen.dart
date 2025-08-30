@@ -24,7 +24,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final List<AnimationController> _bounceControllers = [];
   final List<Animation<double>> _bounceAnimations = [];
   final milestones = <double>[0.15, 0.4, 0.65, 0.90, 1.15];
-  final milestoneYOffsets = <double>[40.0, 44.0, 40.0, 36.0, 46.0];
+  // final milestoneYOffsets = <double>[40.0, 44.0, 40.0, 36.0, 46.0];
+  final milestoneYOffsets = <double>[60.0, 64.0, 60.0, 56.0, 66.0];
 
   @override
   void initState() {
@@ -214,8 +215,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   // Progress bar with PNG overlay
                   ImageProgressBar(
                     progress: progress,
-                    height: 120.0,
-                    imagePath: 'assets/ui/image.png',
+                    height: 220.0,
+                    imagePath: 'assets/ui/branch.png',
                     milestones: milestones,
                     milestoneYOffsets:
                         milestoneYOffsets, // Individual Y positions for each milestone
