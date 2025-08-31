@@ -199,7 +199,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ((allTasks.length / tasksPerBatch).ceil());
       progress = totalProgress.clamp(0.0, 1.0);
 
-      // Start transition to new milestone
       _startTransitionToNewMilestone();
     });
   }
@@ -208,56 +207,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _startTransitionToNewMilestone() {
     final gifAssets = _getGifAssetsForMilestone();
 
-    print('🎬 Starting transition: currentTaskIndex = $currentTaskIndex');
-    print(' Transition GIF: ${gifAssets['transition']}');
-    print(' Looping GIF: ${gifAssets['looping']}');
-
     if (gifAssets['transition']!.isNotEmpty) {
-      print(' Playing transition GIF: ${gifAssets['transition']}');
-      print(' Transition start time: ${DateTime.now()}');
 
-      // Play transition GIF first
       setState(() {
         _isTransitioning = true;
         _transitionGif = gifAssets['transition']!;
-        print(
-            ' Transition state set: _isTransitioning = $_isTransitioning, _transitionGif = $_transitionGif');
       });
 
-      // Calculate transition duration based on the specific GIF
-      // Different transition GIFs may have different durations
       int transitionDuration = _getTransitionDuration(gifAssets['transition']!);
-
-      print(' Transition duration: ${transitionDuration}ms');
-
-      // After transition completes, switch to looping GIF
       Future.delayed(Duration(milliseconds: transitionDuration), () {
-        print('🎬 Transition complete, switching to: ${gifAssets['looping']}');
-        print(' Transition end time: ${DateTime.now()}');
         setState(() {
           _isTransitioning = false;
           _currentLoopingGif = gifAssets['looping']!;
-          print(
-              ' Transition state updated: _isTransitioning = $_isTransitioning, _currentLoopingGif = $_currentLoopingGif');
         });
       });
     } else {
-      print(
-          '🎬 No transition needed, directly updating to: ${gifAssets['looping']}');
-      // No transition needed, directly update looping GIF
       setState(() {
         _currentLoopingGif = gifAssets['looping']!;
       });
     }
   }
 
-  // Get the appropriate transition duration for each GIF
   int _getTransitionDuration(String transitionGif) {
     switch (transitionGif) {
       case 'assets/rivs/t_0-t_1.gif':
-        return 5000; // 5 seconds for the large 13MB transition
+        return 5000; 
       default:
-        return 3000; // Default 3 seconds for unknown transitions
+        return 3000; 
     }
   }
 
@@ -268,7 +244,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     setState(() {
       currentTasks = allTasks.sublist(startIndex, endIndex);
       currentTaskIndex = 0;
-      // Reset GIF to initial state for new batch
       _currentLoopingGif = 'assets/rivs/t_0.gif';
       _isTransitioning = false;
       _transitionGif = '';

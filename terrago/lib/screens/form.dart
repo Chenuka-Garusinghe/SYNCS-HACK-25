@@ -16,12 +16,10 @@ class FormScreen extends StatefulWidget {
 class _FormScreenState extends State<FormScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Form controllers
   final TextEditingController _postCodeController = TextEditingController();
   final TextEditingController _peopleController = TextEditingController();
   final TextEditingController _tripsController = TextEditingController();
 
-  // Form values
   int _numberOfVehicles = 0;
   List<String> _vehicleTypes = []; // 'Gas' or 'EV'
   String _dietaryType = 'Normal Omnivorous';
@@ -56,28 +54,15 @@ class _FormScreenState extends State<FormScreen> {
   }
 
   Map<String, dynamic> _generateJsonData() {
-    // Convert dietary type to the format specified in the JSON
-    String dietType = 'normal';
-    switch (_dietaryType) {
-      case 'Meat Heavy':
-        dietType = 'meat_heavy';
-        break;
-      case 'Normal Omnivorous':
-        dietType = 'normal';
-        break;
-      case 'Vegetarian':
-        dietType = 'vegetarian';
-        break;
-      case 'Vegan':
-        dietType = 'vegan';
-        break;
-    }
+    String dietType = switch (_dietaryType) {
+      'Meat Heavy' => 'meat_heavy',
+      'Vegetarian' => 'vegetarian',
+      'Vegan' => 'vegan',
+      _ => 'normal',
+    };
 
-    // Convert fuel types to a list based on each vehicle's type
-    List<String> fuelTypes = [];
-    for (String vehicleType in _vehicleTypes) {
-      fuelTypes.add(vehicleType == 'Gas' ? 'petrol' : 'ev');
-    }
+    final List<String> fuelTypes =
+        _vehicleTypes.map((v) => v == 'Gas' ? 'petrol' : 'ev').toList();
 
     return {
       "postcode": _postCodeController.text,
@@ -91,29 +76,17 @@ class _FormScreenState extends State<FormScreen> {
   }
 
   Map<String, dynamic> _generateCarbonActionsData() {
-    // Convert dietary type to the format expected by carbon actions
-    String dietType = 'normal';
-    switch (_dietaryType) {
-      case 'Meat Heavy':
-        dietType = 'meat_heavy';
-        break;
-      case 'Normal Omnivorous':
-        dietType = 'normal';
-        break;
-      case 'Vegetarian':
-        dietType = 'vegetarian';
-        break;
-      case 'Vegan':
-        dietType = 'vegan';
-        break;
-    }
+    String dietType = switch (_dietaryType) {
+      'Meat Heavy' => 'meat_heavy',
+      'Vegetarian' => 'vegetarian',
+      'Vegan' => 'vegan',
+      _ => 'normal',
+    };
 
-    // For carbon actions, we need to determine the primary fuel type
-    // If there are multiple vehicles, use the most common type
-    String primaryFuelType = 'petrol'; // default
+    String primaryFuelType = 'petrol';
     if (_numberOfVehicles > 0) {
-      int petrolCount = _vehicleTypes.where((type) => type == 'Gas').length;
-      int evCount = _vehicleTypes.where((type) => type == 'EV').length;
+      final petrolCount = _vehicleTypes.where((t) => t == 'Gas').length;
+      final evCount = _vehicleTypes.where((t) => t == 'EV').length;
       primaryFuelType = petrolCount >= evCount ? 'petrol' : 'ev';
     }
 
@@ -130,18 +103,11 @@ class _FormScreenState extends State<FormScreen> {
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      Map<String, dynamic> jsonData = _generateJsonData();
-      String jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
+      final jsonData = _generateJsonData();
+      final jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
 
-      // Store the JSON data in variables for further use
-      // You can access:
-      // - jsonData: Map<String, dynamic> containing the structured data
-      // - jsonString: String containing the formatted JSON
+      print('Generated JSON ------>\n$jsonString');
 
-      print('Generated JSON ------>');
-      print(jsonString);
-
-      // Calculate carbon footprint using the carbon calculator
       try {
         final double carbonFootprint =
             CarbonCalculator.calculateAnnualCo2e(jsonData);
@@ -149,52 +115,31 @@ class _FormScreenState extends State<FormScreen> {
             CarbonCalculator.getCalculationBreakdown(jsonData);
 
         print('\n=== CARBON FOOTPRINT CALCULATION ===');
-        print('Annual CO2e: ${carbonFootprint} kg');
-        print(
-            'Transport: ${breakdown['breakdown']['transport']['annual_total_kgco2e']} kg CO2e (${breakdown['breakdown']['transport']['percentage']}%)');
-        print(
-            'Diet: ${breakdown['breakdown']['diet']['annual_total_kgco2e']} kg CO2e (${breakdown['breakdown']['diet']['percentage']}%)');
-        print(
-            'Electricity: ${breakdown['breakdown']['electricity']['annual_total_kgco2e']} kg CO2e (${breakdown['breakdown']['electricity']['percentage']}%)');
+        print('Annual CO2e: $carbonFootprint kg');
 
-        // Create output data for the JSON file
-        final Map<String, dynamic> outputData = {
+        final outputData = {
           'annual_total_kgco2e': carbonFootprint,
           'breakdown': breakdown['breakdown'],
           'input_data': jsonData,
           'calculation_timestamp': DateTime.now().toIso8601String(),
         };
 
-        // Save to output.json file
         await _saveOutputToFile(outputData);
 
-        // Now generate carbon actions using OpenAI API
-        try {
-          await _generateCarbonActions();
-
-          // Navigate to choose avatar screen after successful completion
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const ChooseAvatarScreen(),
-              ),
-            );
-          }
-        } catch (e) {
-          print('Error generating carbon actions: $e');
-          // Still navigate even if carbon actions fail
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const ChooseAvatarScreen(),
-              ),
-            );
-          }
+        if (mounted) {
+          _showSummaryPopup(jsonData, carbonFootprint, breakdown);
         }
 
-        // You can now use carbonFootprint and breakdown data as needed
-        // For example, store them in variables, send to API, or display in UI
+        // Generate actions in the background while the dialog is visible
+        // Don't auto-navigate - let user control when to proceed
+        try {
+          await _generateCarbonActions();
+        } catch (e) {
+          // ignore: avoid_print
+          print('Error generating carbon actions: $e');
+        }
       } catch (e) {
+        // ignore: avoid_print
         print('Error calculating carbon footprint: $e');
       }
     }
@@ -211,9 +156,10 @@ class _FormScreenState extends State<FormScreen> {
       final File file = File(filePath);
       await file.writeAsString(jsonString);
 
+      // ignore: avoid_print
       print('✅ Output saved to: $filePath');
-      print('📄 File contents:');
-      print(jsonString);
+      // ignore: avoid_print
+      print('📄 File contents:\n$jsonString');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -226,7 +172,8 @@ class _FormScreenState extends State<FormScreen> {
         );
       }
     } catch (e) {
-      print('❌ Error saving output file to hidden temp foler$e');
+      // ignore: avoid_print
+      print('❌ Error saving output file to hidden temp folder $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -245,9 +192,9 @@ class _FormScreenState extends State<FormScreen> {
       final String outputJsonPath = '${documentsDir.path}/output.json';
       final String actionsJsonPath = '${documentsDir.path}/actions.json';
 
+      // ignore: avoid_print
       print('\n🔄 Generating carbon actions using OpenAI API...');
 
-      // First, create the output.json file in the format expected by carbon actions
       final Map<String, dynamic> carbonActionsData =
           _generateCarbonActionsData();
       final String carbonActionsJsonString =
@@ -256,32 +203,30 @@ class _FormScreenState extends State<FormScreen> {
       final File outputFile = File(outputJsonPath);
       await outputFile.writeAsString(carbonActionsJsonString);
 
-      print('📄 Created output.json for carbon actions:');
-      print(carbonActionsJsonString);
+      // ignore: avoid_print
+      print(
+          '📄 Created output.json for carbon actions:\n$carbonActionsJsonString');
 
-      // Process the output.json and generate actions using OpenAI API
       await CarbonActionsGenerator.processOutputAndGenerateActions(
         outputJsonPath: outputJsonPath,
         actionsJsonPath: actionsJsonPath,
         useOpenAI: true,
       );
 
-      // Read and display the generated actions
       final File actionsFile = File(actionsJsonPath);
       if (await actionsFile.exists()) {
         final String actionsContent = await actionsFile.readAsString();
         final Map<String, dynamic> actionsData = jsonDecode(actionsContent);
 
-        print('\n🎯 GENERATED CARBON ACTIONS:');
-        print('=' * 50);
-
+        // ignore: avoid_print
+        print('\n🎯 GENERATED CARBON ACTIONS:\n${'=' * 50}');
         final List<dynamic> actions = actionsData['actions'];
         for (int i = 0; i < actions.length; i++) {
+          // ignore: avoid_print
           print('${i + 1}. ${actions[i]}');
         }
-
-        print('=' * 50);
-        print('✅ Actions saved to: $actionsJsonPath');
+        // ignore: avoid_print
+        print('${'=' * 50}\n✅ Actions saved to: $actionsJsonPath');
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -293,9 +238,11 @@ class _FormScreenState extends State<FormScreen> {
           );
         }
       } else {
+        // ignore: avoid_print
         print('❌ Actions file not found at: $actionsJsonPath');
       }
     } catch (e) {
+      // ignore: avoid_print
       print('❌ Error generating carbon actions: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -342,11 +289,7 @@ class _FormScreenState extends State<FormScreen> {
                 ),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.eco,
-                      size: 50,
-                      color: Colors.green[600],
-                    ),
+                    Icon(Icons.eco, size: 50, color: Colors.green[600]),
                     const SizedBox(height: 10),
                     Text(
                       'Let\'s  now assess your environmental impact',
@@ -402,166 +345,8 @@ class _FormScreenState extends State<FormScreen> {
 
               const SizedBox(height: 20),
 
-              // Number of Motor Vehicles
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Number of Motor Vehicles',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green[700],
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '$_numberOfVehicles',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            setState(() {
-                              if (_numberOfVehicles > 0) {
-                                _numberOfVehicles--;
-                                _updateVehicleTypes();
-                              }
-                            });
-                          },
-                          icon: const Icon(Icons.remove_circle_outline),
-                          color: Colors.red,
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _numberOfVehicles++;
-                              _updateVehicleTypes();
-                            });
-                          },
-                          icon: const Icon(Icons.add_circle_outline),
-                          color: Colors.green,
-                        ),
-                      ],
-                    ),
-                    if (_numberOfVehicles > 0) ...[
-                      const SizedBox(height: 15),
-                      Text(
-                        'Vehicle Types:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.green[600],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        children: List.generate(_numberOfVehicles, (index) {
-                          final isGas = _vehicleTypes[index] == 'Gas';
-                          return ChoiceChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isGas
-                                      ? Icons.local_gas_station
-                                      : Icons.electric_car,
-                                  size: 16,
-                                  color: isGas
-                                      ? Colors.orange[700]
-                                      : Colors.blue[700],
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Vehicle ${index + 1}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  isGas ? 'Gas' : 'EV',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: isGas
-                                        ? Colors.orange[700]
-                                        : Colors.blue[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            selected: true,
-                            onSelected: (selected) {
-                              setState(() {
-                                _vehicleTypes[index] = isGas ? 'EV' : 'Gas';
-                              });
-                            },
-                            selectedColor:
-                                isGas ? Colors.orange[100] : Colors.blue[100],
-                            backgroundColor: Colors.grey[200],
-                            side: BorderSide(
-                              color: isGas
-                                  ? Colors.orange[300]!
-                                  : Colors.blue[300]!,
-                              width: 2,
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue[200]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 16,
-                              color: Colors.blue[600],
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Tap each vehicle chip to toggle between Gas and EV',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.blue[700],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              // Vehicles
+              _buildVehiclesCard(),
 
               const SizedBox(height: 20),
 
@@ -586,117 +371,12 @@ class _FormScreenState extends State<FormScreen> {
               const SizedBox(height: 20),
 
               // Dietary Type
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Dietary Type on Average',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green[700],
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _dietaryOptions.map((option) {
-                        return ChoiceChip(
-                          label: Text(option),
-                          selected: _dietaryType == option,
-                          onSelected: (selected) {
-                            setState(() {
-                              _dietaryType = option;
-                            });
-                          },
-                          selectedColor: Colors.green[200],
-                          backgroundColor: Colors.grey[200],
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
+              _buildDietCard(),
 
               const SizedBox(height: 20),
 
-              // Solar Panels Question
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Do you have solar panels at your house?',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green[700],
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ListTile(
-                            title: const Text('Yes'),
-                            leading: Radio<bool>(
-                              value: true,
-                              groupValue: _hasSolarPanels,
-                              onChanged: (value) {
-                                setState(() {
-                                  _hasSolarPanels = value!;
-                                });
-                              },
-                              activeColor: Colors.green,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: ListTile(
-                            title: const Text('No'),
-                            leading: Radio<bool>(
-                              value: false,
-                              groupValue: _hasSolarPanels,
-                              onChanged: (value) {
-                                setState(() {
-                                  _hasSolarPanels = value!;
-                                });
-                              },
-                              activeColor: Colors.green,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              // Solar
+              _buildSolarCard(),
 
               const SizedBox(height: 30),
 
@@ -713,10 +393,7 @@ class _FormScreenState extends State<FormScreen> {
                 ),
                 child: const Text(
                   'Submit Assessment',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
 
@@ -728,16 +405,232 @@ class _FormScreenState extends State<FormScreen> {
     );
   }
 
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required TextInputType keyboardType,
-    required String? Function(String?) validator,
-  }) {
+  // ---------- UI helpers ----------
+
+  Widget _buildVehiclesCard() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Number of Motor Vehicles',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.green[700],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$_numberOfVehicles',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    if (_numberOfVehicles > 0) {
+                      _numberOfVehicles--;
+                      _updateVehicleTypes();
+                    }
+                  });
+                },
+                icon: const Icon(Icons.remove_circle_outline),
+                color: Colors.red,
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _numberOfVehicles++;
+                    _updateVehicleTypes();
+                  });
+                },
+                icon: const Icon(Icons.add_circle_outline),
+                color: Colors.green,
+              ),
+            ],
+          ),
+          if (_numberOfVehicles > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Vehicle Types:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.green[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: List.generate(_numberOfVehicles, (index) {
+                final isGas = _vehicleTypes[index] == 'Gas';
+                return ChoiceChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isGas ? Icons.local_gas_station : Icons.electric_car,
+                        size: 16,
+                        color: isGas ? Colors.orange[700] : Colors.blue[700],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Vehicle ${index + 1}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isGas ? 'Gas' : 'EV',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isGas ? Colors.orange[700] : Colors.blue[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  selected: true,
+                  onSelected: (_) {
+                    setState(() {
+                      _vehicleTypes[index] = isGas ? 'EV' : 'Gas';
+                    });
+                  },
+                  selectedColor: isGas ? Colors.orange[100] : Colors.blue[100],
+                  backgroundColor: Colors.grey[200],
+                  side: BorderSide(
+                    color: isGas ? Colors.orange[300]! : Colors.blue[300]!,
+                    width: 2,
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue[600]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tap each vehicle chip to toggle between Gas and EV',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blue[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDietCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Dietary Type on Average',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.green[700],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: _dietaryOptions.map((option) {
+              return ChoiceChip(
+                label: Text(option),
+                selected: _dietaryType == option,
+                onSelected: (_) => setState(() => _dietaryType = option),
+                selectedColor: Colors.green[200],
+                backgroundColor: Colors.grey[200],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSolarCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Do you have solar panels at your house?',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.green[700],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ListTile(
+                  title: const Text('Yes'),
+                  leading: Radio<bool>(
+                    value: true,
+                    groupValue: _hasSolarPanels,
+                    onChanged: (value) => setState(() {
+                      _hasSolarPanels = value!;
+                    }),
+                    activeColor: Colors.green,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListTile(
+                  title: const Text('No'),
+                  leading: Radio<bool>(
+                    value: false,
+                    groupValue: _hasSolarPanels,
+                    onChanged: (value) => setState(() {
+                      _hasSolarPanels = value!;
+                    }),
+                    activeColor: Colors.green,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _cardDecoration() => BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
@@ -747,7 +640,18 @@ class _FormScreenState extends State<FormScreen> {
             offset: const Offset(0, 5),
           ),
         ],
-      ),
+      );
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required TextInputType keyboardType,
+    required String? Function(String?) validator,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -782,6 +686,319 @@ class _FormScreenState extends State<FormScreen> {
             validator: validator,
           ),
         ],
+      ),
+    );
+  }
+
+  // ---------- Summary Dialog (no scroll, no overflow) ----------
+
+  void _showSummaryPopup(Map<String, dynamic> jsonData, double carbonFootprint,
+      Map<String, dynamic> breakdown) {
+    final size = MediaQuery.of(context).size;
+
+    // Mild text scale down on short screens to guarantee fit without scrolling.
+    final textScale = size.height < 720 ? 0.95 : 1.0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaleFactor: textScale),
+          child: Dialog(
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: FractionallySizedBox(
+              widthFactor: 0.95,
+              heightFactor: 0.78, // Take ~78% of height so we never overflow
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    // Header (compact)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.eco, color: Colors.green[700], size: 26),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Your Environmental Assessment Summary',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Carbon Footprint (compact)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange[200]!),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Your Annual Carbon Footprint',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${carbonFootprint.toStringAsFixed(1)} kg CO₂e',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Breakdown (fixed height, compact rows)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Breakdown by Category',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildBreakdownItem(
+                            'Transport',
+                            ((breakdown['breakdown']['transport']
+                                            ['annual_total_kgco2e'] as num?)
+                                        ?.toDouble() ??
+                                    0.0)
+                                .toStringAsFixed(1),
+                            ((breakdown['breakdown']['transport']['percentage']
+                                            as num?)
+                                        ?.toDouble() ??
+                                    0.0)
+                                .toStringAsFixed(1),
+                            Icons.directions_car,
+                            Colors.blue,
+                          ),
+                          const SizedBox(height: 6),
+                          _buildBreakdownItem(
+                            'Diet',
+                            ((breakdown['breakdown']['diet']
+                                            ['annual_total_kgco2e'] as num?)
+                                        ?.toDouble() ??
+                                    0.0)
+                                .toStringAsFixed(1),
+                            ((breakdown['breakdown']['diet']['percentage']
+                                            as num?)
+                                        ?.toDouble() ??
+                                    0.0)
+                                .toStringAsFixed(1),
+                            Icons.restaurant,
+                            Colors.green,
+                          ),
+                          const SizedBox(height: 6),
+                          _buildBreakdownItem(
+                            'Electricity',
+                            ((breakdown['breakdown']['electricity']
+                                            ['annual_total_kgco2e'] as num?)
+                                        ?.toDouble() ??
+                                    0.0)
+                                .toStringAsFixed(1),
+                            ((breakdown['breakdown']['electricity']
+                                            ['percentage'] as num?)
+                                        ?.toDouble() ??
+                                    0.0)
+                                .toStringAsFixed(1),
+                            Icons.electric_bolt,
+                            Colors.orange,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Input summary as compact chips (takes minimal vertical space)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Based on your input:',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _infoChip('${jsonData['adults'] ?? 0} adults'),
+                              _infoChip(
+                                  '${jsonData['cars'] ?? 0} car${(jsonData['cars'] ?? 0) == 1 ? '' : 's'} (${_formatFuelTypes(jsonData['fuel_type'])})'),
+                              _infoChip(
+                                  '${jsonData['trips_per_week'] ?? 0} trips/week'),
+                              _infoChip('${jsonData['diet'] ?? 'normal'} diet'),
+                              _infoChip('Solar: ${jsonData['solar'] ?? 'no'}'),
+                              _infoChip(
+                                  'Postcode: ${jsonData['postcode'] ?? 'N/A'}'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    _buildNextButton(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _infoChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.green[200]!),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.green[800],
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBreakdownItem(String label, String value, String percentage,
+      IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Text(
+          '$value kg CO₂e ($percentage%)',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  String _formatFuelTypes(dynamic fuelTypes) {
+    if (fuelTypes == null) return 'N/A';
+    if (fuelTypes is List) {
+      if (fuelTypes.isEmpty) return 'none';
+      final Map<String, int> fuelCounts = {};
+      for (final f in fuelTypes.cast<String>()) {
+        fuelCounts[f] = (fuelCounts[f] ?? 0) + 1;
+      }
+      if (fuelCounts.length == 1) return fuelCounts.keys.first;
+      return fuelCounts.entries.map((e) => '${e.value} ${e.key}').join(', ');
+    }
+    return fuelTypes.toString();
+  }
+
+  Widget _buildNextButton() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green[200]!),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {
+            // Close the popup first
+            Navigator.of(context).pop();
+            // Then navigate to the next screen
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                  builder: (context) => const ChooseAvatarScreen()),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green[600],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 2,
+          ),
+          child: const Text(
+            'Next',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+        ),
       ),
     );
   }
